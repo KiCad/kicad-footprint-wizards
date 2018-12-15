@@ -1,4 +1,4 @@
-# Footprint_Wizards
+# Footprint Wizards
 
 This repository contains footprint wizards for use with KiCad EDA software (www.kicad-pcb.org). 
 
