@@ -54,6 +54,7 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         self.AddParam("Pads", "width", self.uMM, 10)
         self.AddParam("Pads", "length", self.uMM, 50)
         self.AddParam("Pads", "clearance", self.uMM, 1)
+        self.AddParam("Pads", "split electrodes", self.uBool, 0)
 
     @property
     def pads(self):
@@ -65,7 +66,12 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         pad.SetSize(size)
         pad.SetShape(PAD_SHAPE_RECT)
         pad.SetAttribute(PAD_ATTRIB_SMD)
-        pad.SetLayerSet(pad.ConnSMDMask())
+
+        layerset = pcbnew.LSET()
+        layerset.AddLayer(currentLayer)
+        #layerset.AddLayer(pcbnew.F_Mask)
+        pad.SetLayerSet( layerset )
+
         pad.SetPos0(pos)
         pad.SetPosition(pos)
         pad.SetName(name)
@@ -77,7 +83,12 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         pad.SetSize(wxSize(size[0],size[1]))
         pad.SetShape(PAD_SHAPE_TRAPEZOID)
         pad.SetAttribute(PAD_ATTRIB_SMD)
-        pad.SetLayerSet(pad.ConnSMDMask())
+
+        layerset = pcbnew.LSET()
+        layerset.AddLayer(currentLayer)
+        #layerset.AddLayer(pcbnew.F_Mask)
+        pad.SetLayerSet( layerset )
+
         pad.SetPos0(pos)
         pad.SetPosition(pos)
         pad.SetName(name)
@@ -169,6 +180,32 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         pos = pos + wxPoint(step_length,0)
         self.AddFinalPad(pos,touch_width,step_length,touch_clearance,str(steps))
 
+    def AddYElectrodes(self,touch_length,touch_width,electrodeName):
+        yElectrodeSpacing   = 4
+        yElectrodeCount     = (int)(((pcbnew.ToMM(touch_width)-4)/yElectrodeSpacing))+1
+        yElectrodeThickness = 0.1
+
+        currentLayer  = pcbnew.F_Cu
+        yPosition     = (pcbnew.ToMM(touch_width)/2)-((pcbnew.ToMM(touch_width)-((yElectrodeCount-1)*yElectrodeSpacing))/2.0)
+
+        for i in range(0,yElectrodeCount):
+            pad = self.smdRectPad(
+                self.module,
+                wxSize(touch_length,pcbnew.FromMM(yElectrodeThickness)),
+                wxPoint(0,pcbnew.FromMM(yPosition)),
+                str(electrodeName))
+            self.module.Add(pad)
+            yPosition -= yElectrodeSpacing
+
+        #Leftmost line that connects all electrodes
+        pad = self.smdRectPad(
+            self.module,
+            wxSize(pcbnew.FromMM(yElectrodeThickness),pcbnew.FromMM((yElectrodeCount-1)*yElectrodeSpacing+yElectrodeThickness)),
+            #wxPoint(-touch_length/2,0),
+            wxPoint(-touch_length/2,0),
+            str(electrodeName))
+        self.module.Add(pad)
+
     # build the footprint from parameters
     # FIX ME: the X and Y position of the footprint can be better.
     def BuildThisFootprint(self):
@@ -178,8 +215,15 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         touch_width       = self.pads["width"]
         touch_length      = self.pads["length"]
         touch_clearance   = self.pads["clearance"]
+        split_electrodes  = self.pads["split electrodes"]
 
         step_length = float(touch_length) / float(steps)
+
+        global currentLayer
+        if(split_electrodes):
+            currentLayer = pcbnew.B_Cu
+        else:
+            currentLayer = pcbnew.F_Cu
 
         t_size = self.GetTextSize()
         w_text = self.draw.GetLineThickness()
@@ -202,6 +246,10 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
         for b in range(bands):
             self.AddStrip(pos,steps,band_width,step_length,touch_clearance)
             pos += wxPoint(0,band_width)
+
+        if(split_electrodes):
+            currentLayer = pcbnew.F_Cu
+            self.AddYElectrodes(touch_length,touch_width,steps+1)
 
 TouchSliderWizard().register()
 
