@@ -46,6 +46,7 @@ class MutualcapButtonWizard(FootprintWizardBase.FootprintWizard):
         self.AddParam("Pads", "Width", self.uMM, 12)
         self.AddParam("Pads", "Height", self.uMM, 12)
         self.AddParam("Pads", "Inner electrode width", self.uMM, 0.1)
+        self.AddParam("Pads", "Draw line around button", self.uBool, True)
 
     @property
     def pads(self):
@@ -79,6 +80,7 @@ class MutualcapButtonWizard(FootprintWizardBase.FootprintWizard):
         w  = self.pads["Width"]
         h  = self.pads["Height"]
         iew = self.pads["Inner electrode width"]
+        drawBox = self.pads["Draw line around button"]
 
         oFingerCount = int((w-3*pt-iew)/(1.5*pt+iew))
         oBorderWidth = (w-pt-iew-oFingerCount*(1.5*pt+iew))/2
@@ -112,5 +114,9 @@ class MutualcapButtonWizard(FootprintWizardBase.FootprintWizard):
         textSize = self.GetTextSize()
         self.draw.Value(0, h/2+textSize, textSize)
         self.draw.Reference(0, -h/2-textSize, textSize)
+
+        #optionally draw silkscreen line around button
+        if(drawBox):
+            self.draw.Box(0,0,w,h)
 
 MutualcapButtonWizard().register()
