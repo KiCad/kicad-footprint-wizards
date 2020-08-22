@@ -200,9 +200,7 @@ class TouchSliderWizard(FootprintWizardBase.FootprintWizard):
 
     def AddYElectrodes(self, touch_length, touch_width, y_width, electrodeName):
         yElectrodeSpacing = 4
-        yElectrodeCount = (int)(
-            ((pcbnew.ToMM(touch_width) - 4) / yElectrodeSpacing)
-        ) + 1
+        yElectrodeCount = int(((pcbnew.ToMM(touch_width) - 4) / yElectrodeSpacing)) + 1
         yElectrodeThickness = y_width
 
         currentLayer = pcbnew.F_Cu
