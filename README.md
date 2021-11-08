@@ -1,6 +1,6 @@
 # Footprint Wizards
 
-This repository contains footprint wizards for use with KiCad EDA software (www.kicad-pcb.org). 
+This repository contains footprint wizards for use with KiCad EDA software (www.kicad.org). 
 
 Footprint wizards allow parameteric generation of various PCB footprints using user-specified values.
 
