@@ -13,6 +13,7 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #
+# 2020-04-27 v1.01  bigrom26     make QFP rectangle
 
 from __future__ import division
 import pcbnew
@@ -29,7 +30,8 @@ class QFPWizard(FootprintWizardBase.FootprintWizard):
         return "Quad Flat Package (QFP) footprint wizard"
 
     def GenerateParameterList(self):
-        self.AddParam("Pads", "n", self.uInteger, 100, multiple=4, min_value=4)
+        self.AddParam("Pads", "nx", self.uInteger, 10, multiple=2, min_value=2)
+        self.AddParam("Pads", "ny", self.uInteger, 10, multiple=2, min_value=2)
         self.AddParam("Pads", "pitch", self.uMM, 0.5, designator='e')
         self.AddParam("Pads", "width", self.uMM, 0.25, designator='X1')
         self.AddParam("Pads", "length", self.uMM, 1.5, designator='Y1')
@@ -54,8 +56,9 @@ class QFPWizard(FootprintWizardBase.FootprintWizard):
         pass
 
     def GetValue(self):
-        return "QFP-{n}_{x:g}x{y:g}_Pitch{p:g}mm".format(
-            n = self.pads['n'],
+        return "QFP-{nx:g}x{ny:g}_{x:g}x{y:g}_Pitch{p:g}mm".format(
+            nx = self.pads['nx'],
+            ny = self.pads['ny'],
             x = pcbnew.ToMM(self.package['width']),
             y = pcbnew.ToMM(self.package['height']),
             p = pcbnew.ToMM(self.pads['pitch'])
@@ -70,9 +73,11 @@ class QFPWizard(FootprintWizardBase.FootprintWizard):
         v_pitch = self.pads["vertical spacing"]
         h_pitch = self.pads["horizontal spacing"]
 
-        pads_per_row = int(self.pads["n"] // 4)
+        pads_per_col = int(self.pads["nx"])
+        pads_per_row = int(self.pads["ny"])
 
         row_len = (pads_per_row - 1) * pad_pitch
+        col_len = (pads_per_col - 1) * pad_pitch
 
         pad_shape = pcbnew.PAD_SHAPE_OVAL if self.pads["oval"] else pcbnew.PAD_SHAPE_RECT
 
@@ -88,32 +93,34 @@ class QFPWizard(FootprintWizardBase.FootprintWizard):
 
         #bottom row
         pin1Pos = pcbnew.wxPoint(0, v_pitch / 2)
-        array = PA.PadLineArray(v_pad, pads_per_row, pad_pitch, False, pin1Pos)
-        array.SetFirstPadInArray(pads_per_row + 1)
+        array = PA.PadLineArray(v_pad, pads_per_col, pad_pitch, False, pin1Pos)
+        array.SetFirstPadInArray( pads_per_row + 1)
         array.AddPadsToModule(self.draw)
 
         #right row
         pin1Pos = pcbnew.wxPoint(h_pitch / 2, 0)
         array = PA.PadLineArray(h_pad, pads_per_row, -pad_pitch, True,
                                 pin1Pos)
-        array.SetFirstPadInArray(2*pads_per_row + 1)
+        array.SetFirstPadInArray( pads_per_row + pads_per_col + 1)
         array.AddPadsToModule(self.draw)
 
         #top row
         pin1Pos = pcbnew.wxPoint(0, -v_pitch / 2)
-        array = PA.PadLineArray(v_pad, pads_per_row, -pad_pitch, False,
+        array = PA.PadLineArray(v_pad, pads_per_col, -pad_pitch, False,
                                 pin1Pos)
-        array.SetFirstPadInArray(3*pads_per_row + 1)
+        array.SetFirstPadInArray( 2*pads_per_row + pads_per_col + 1)
         array.AddPadsToModule(self.draw)
 
         offset = pcbnew.FromMM(0.15)
 
         x = self.parameters["Package"]["width"] / 2 + offset
         y = self.parameters["Package"]["height"] / 2 + offset
-        inner = (row_len / 2) + pad_pitch
+        innerY = (row_len / 2) + pad_pitch
+        innerX = (col_len / 2) + pad_pitch
 
         # Add outline to F_Fab layer
         self.draw.SetLayer(pcbnew.F_Fab)
+        thick = self.draw.GetLineThickness()
 
         bevel = min( pcbnew.FromMM(1.0), self.package['width']/2, self.package['height']/2 )
 
@@ -127,32 +134,33 @@ class QFPWizard(FootprintWizardBase.FootprintWizard):
         bottom_edge = (v_pitch + pad_length) / 2
         top_edge = -bottom_edge
 
+        self.draw.SetLineThickness( pcbnew.FromMM( 0.1 ) ) #Default per KLC F5.2 as of 12/2018
         self.draw.BoxWithDiagonalAtCorner(0, 0, w, h, bevel)
 
         # Draw silkscreen
-        self.draw.SetLayer(pcbnew.F_SilkS)
+        self.draw.SetLayer( pcbnew.F_SilkS )
+        self.draw.SetLineThickness( pcbnew.FromMM( 0.12 ) ) #Default per KLC F5.1 as of 12/2018
 
         #top left - as per IPC-7351C
-        self.draw.Polyline([(-inner, -y), (-x, -y), (-x, -inner), (left_edge, -inner)])
+        self.draw.Polyline([(-innerX, -y), (-x, -y), (-x, -innerY), (left_edge, -innerY)])
         # top right
-        self.draw.Polyline([(inner, -y), (x, -y), (x, -inner)])
+        self.draw.Polyline([(innerX, -y), (x, -y), (x, -innerY)])
         # bottom left
-        self.draw.Polyline([(-inner, y), (-x, y), (-x, inner)])
+        self.draw.Polyline([(-innerX, y), (-x, y), (-x, innerY)])
         # bottom right
-        self.draw.Polyline([(inner, y), (x, y), (x, inner)])
+        self.draw.Polyline([(innerX, y), (x, y), (x, innerY)])
 
         # Courtyard
         cmargin = self.parameters["Package"]["courtyard margin"]
-        self.draw.SetLayer(pcbnew.F_CrtYd)
-        sizex = (right_edge + cmargin) * 2
-        sizey = (bottom_edge + cmargin) * 2
+        self.draw.SetLayer( pcbnew.F_CrtYd )
+        sizex = ( right_edge + cmargin ) * 2
+        sizey = ( bottom_edge + cmargin ) * 2
         # round size to nearest 0.1mm, rectangle will thus land on a 0.05mm grid
-        sizex = pcbnew.PutOnGridMM(sizex, 0.1)
-        sizey = pcbnew.PutOnGridMM(sizey, 0.1)
-        # set courtyard line thickness to the one defined in KLC
-        thick = self.draw.GetLineThickness()
-        self.draw.SetLineThickness(pcbnew.FromMM(0.05))
-        self.draw.Box(0, 0, sizex, sizey)
+        sizex = pcbnew.PutOnGridMM( sizex, 0.1 )
+        sizey = pcbnew.PutOnGridMM( sizey, 0.1 )
+
+        self.draw.SetLineThickness( pcbnew.FromMM( 0.05 ) ) #Default per KLC F5.3 as of 12/2018
+        self.draw.Box( 0, 0, sizex, sizey )
         # restore line thickness to previous value
         self.draw.SetLineThickness(pcbnew.FromMM(thick))
 
